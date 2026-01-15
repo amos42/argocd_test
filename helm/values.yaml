@@ -1,0 +1,130 @@
+imageRepo: sds.redii.net
+imageOrg: op-pjt
+host: local
+
+automountServiceAccountToken: true
+
+deployment:
+  deploymentList: 
+    - name: chromadb
+      # image: ${imageRepo}/${imageOrg}/chroma:${tag}
+      fullImage: chromadb/chroma:latest
+      image: chromadb/chroma
+      tag: latest
+      # enabled: false
+      envList:
+        IS_PERSISTENT: TRUE
+        # PERSIST_DIRECTORY:
+        # CHROMA_SERVER_AUTHN_PROVIDER:
+        # CHROMA_SERVER_AUTHN_CREDENTIALS_FILE:
+        # CHROMA_SERVER_AUTHN_CREDENTIALS:
+        # CHROMA_AUTH_TOKEN_TRANSPORT_HEADER:
+        # CHROMA_OTEL_EXPORTER_ENDPOINT:
+        # CHROMA_OTEL_EXPORTER_HEADERS:
+        # CHROMA_OTEL_SERVICE_NAME:
+        # CHROMA_OTEL_GRANULARITY:
+        # CHROMA_SERVER_NOFILE:
+        CHROMA_SERVER_CORS_ALLOW_ORIGINS: '["*"]'
+        REQUESTS_CA_BUNDLE: /etc/ssl/certs/sample_cert.crt
+      endpoint:
+        ingress: true
+        serviceType: ClusterIP
+        ports:
+        - name: ws
+          port: 8000
+          service:
+            ingress: 
+              hostPrefix: chromadb
+              path: /
+      volumeMounts:
+        - name: chroma-data
+          mountPath: /chroma/chroma
+        - name: cert
+          type: secret
+          mountPath: /etc/ssl/certs/sample_cert.crt
+          subPath: sample_cert.crt
+          readOnly: true
+      args: ["--workers 1 --host 0.0.0.0 --port 8000 --proxy-headers --log-config chromadb/log_config.yml --timeout-keep-alive 30"]
+ 
+    - name: flowise
+      # image: ${imageRepo}/${imageOrg}/flowise:${tag}
+      fullImage: flowiseai/flowise:latest
+      image: flowiseai/flowise
+      tag: latest
+      # enabled: false
+      endpoint:
+        serviceType: ClusterIP
+        ingress: true
+        ports:
+          - port: 3000
+            service:
+              ingress: 
+                hostPrefix: flowise
+                path: /
+      envList:
+        PORT:
+        CORS_ORIGINS: '["*"]'
+        IFRAME_ORIGINS: '["*"]'
+        # FLOWISE_USERNAME:
+        # FLOWISE_PASSWORD:
+        # FLOWISE_FILE_SIZE_LIMIT:
+        # DEBUG:
+        # DATABASE_PATH:
+        # DATABASE_TYPE:
+        # DATABASE_PORT:
+        # DATABASE_HOST:
+        # DATABASE_NAME:
+        # DATABASE_USER:
+        # DATABASE_PASSWORD:
+        # DATABASE_SSL:
+        # DATABASE_SSL_KEY_BASE64:
+        # APIKEY_PATH:
+        # SECRETKEY_PATH:
+        # FLOWISE_SECRETKEY_OVERWRITE:
+        # LOG_LEVEL:
+        # LOG_PATH:
+        # BLOB_STORAGE_PATH:
+        # DISABLE_FLOWISE_TELEMETRY:
+        # MODEL_LIST_CONFIG_JSON:
+        REQUESTS_CA_BUNDLE: /etc/ssl/certs/sample_cert.crt
+        CURL_CA_BUNDLE: /etc/ssl/certs/sample_cert.crt
+      volumeMounts:
+        - name: flowise
+          mountPath: /root/.flowise
+        - name: cert
+          type: secret
+          mountPath: /etc/ssl/certs/sample_cert.crt
+          subPath: sample_cert.crt
+          readOnly: true
+      command: ["/bin/sh"]
+      args: ["-c", "sleep 3; flowise start"]
+
+persistence:
+  - name: chroma-data
+    accessMode: ReadWriteOnce
+    volumeSize: 1G
+  - name: flowise
+    accessMode: ReadWriteOnce
+    volumeSize: 1G
+
+configmap:
+
+secret:
+  - name: cert
+    data:
+      sample_cert.crt: |
+            -----BEGIN CERTIFICATE-----
+            ........
+            -----END CERTIFICATE-----
+  - name: tls
+    type: 'kubernetes.io/tls'
+    data:
+      tls.crt: |
+            -----BEGIN CERTIFICATE-----
+            ......
+            -----END CERTIFICATE-----
+      tls.key: |
+            -----BEGIN PRIVATE KEY-----
+            ......
+            -----END PRIVATE KEY-----
+
